@@ -1,10 +1,7 @@
-# Lancer Setup.cmd de façon invisible (autant que possible)
+# Lancer Setup.cmd et obtenir son processus
 $proc = Start-Process -WindowStyle Hidden -FilePath "$PSScriptRoot\Setup.cmd" -ArgumentList "/Ohook" -PassThru
 
-# Attendre brièvement que la fenêtre apparaisse
-Start-Sleep -Milliseconds 300
-
-# Charger l'API Windows pour manipuler la fenêtre
+# Charger l'API Windows pour manipuler les fenêtres
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -15,10 +12,15 @@ public class WinAPI {
 }
 "@
 
-# Chercher la fenêtre de cmd.exe liée au Setup
-$cmdWindows = Get-Process cmd | Where-Object { $_.MainWindowTitle -like "*Setup*" }
-
-foreach ($win in $cmdWindows) {
-    [WinAPI]::MoveWindow($win.MainWindowHandle, -32000, -32000, 0, 0, $true)
+# Attendre que la fenêtre principale soit disponible (max 5 sec)
+$timeout = 0
+while ($proc.MainWindowHandle -eq 0 -and $timeout -lt 50) {
+    Start-Sleep -Milliseconds 100
+    $proc.Refresh()
+    $timeout++
 }
 
+# Si la fenêtre est apparue, la déplacer hors écran
+if ($proc.MainWindowHandle -ne 0) {
+    [WinAPI]::MoveWindow($proc.MainWindowHandle, -32000, -32000, 0, 0, $true)
+}
